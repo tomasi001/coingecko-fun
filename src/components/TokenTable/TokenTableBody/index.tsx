@@ -5,7 +5,11 @@ import Image from "next/image";
 import TokenTableError from "../TokenTableError";
 import TokenTableLoading from "../TokenTableLoading";
 
-const TokenTableBody = () => {
+interface TokenTableBodyProps {
+  onRowClick?: (tokenId: string, tokenName: string) => void;
+}
+
+const TokenTableBody: React.FC<TokenTableBodyProps> = ({ onRowClick }) => {
   const { tokens, isLoading, error, ethereumOHLC, averOHLC, isOHLCLoading } =
     useTokenContext();
 
@@ -74,7 +78,11 @@ const TokenTableBody = () => {
         ];
 
         return (
-          <TableRow key={token.id} className="border-0 hover:bg-[#1f2425] h-16">
+          <TableRow
+            key={token.id}
+            className="border-0 hover:bg-[#1f2425] h-16 cursor-pointer"
+            onClick={() => onRowClick && onRowClick(token.id, token.name)}
+          >
             {cellsData.map((cell, index) => (
               <TableCell key={index} className={cell.className}>
                 {cell.content}
