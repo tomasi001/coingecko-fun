@@ -1,7 +1,7 @@
+import Providers from "@/providers";
 import type { Metadata } from "next";
-import { Inter, Instrument_Sans } from "next/font/google";
+import { Instrument_Sans, Inter } from "next/font/google";
 import "./globals.css";
-
 const inter = Inter({ subsets: ["latin"] });
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -24,7 +24,7 @@ export default function RootLayout({
       <body
         className={`${inter.className} ${instrumentSans.variable} bg-[#0d0f10] text-[#FFFFFF]`}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
