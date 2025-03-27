@@ -4,9 +4,6 @@ import { OHLCData, TokenData } from "@/types";
 import { useGetTokensData } from "@/utils/api/queries";
 import { createContext, useContext, useMemo, useState } from "react";
 
-// Logging utilities
-// const logPrefix = "TokenContext";
-
 interface TokenContextType {
   tokens: TokenData[];
   ethereumOHLC: OHLCData | undefined;
@@ -29,32 +26,6 @@ interface TokenProviderProps {
 const TokenContext = createContext<TokenContextType | undefined>(undefined);
 
 export const TokenProvider = ({ children }: TokenProviderProps) => {
-  // Track refresh count for logging
-  // Create a reference to track last update time
-  //   const lastUpdateRef = useRef<number>(Date.now());
-
-  //   // Log upcoming refresh schedule
-  //   useEffect(() => {
-  //     const logNextUpdate = () => {
-  //       const now = Date.now();
-  //       const timeSinceLastUpdate = now - lastUpdateRef.current;
-  //       const nextUpdateIn = Math.max(0, 30000 - timeSinceLastUpdate);
-
-  //       console.log(
-  //         `%c[${logPrefix}] Auto-refresh scheduled in ${Math.round(
-  //           nextUpdateIn / 1000
-  //         )} seconds`,
-  //         "color: orange;"
-  //       );
-  //     };
-
-  //     // Log on mount and every 10 seconds
-  //     logNextUpdate();
-  //     const interval = setInterval(logNextUpdate, 10000);
-
-  //     return () => clearInterval(interval);
-  //   }, []);
-
   // Consolidated fetch for both market data and OHLC data
   const { data: tokenData, isLoading, error } = useGetTokensData();
 
