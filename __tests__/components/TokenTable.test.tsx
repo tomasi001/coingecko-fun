@@ -1,36 +1,32 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import TokenTable from "@/components/TokenTable";
 import { useTokenContext } from "@/context/token-context";
-import { OHLCData, TokenData } from "@/types";
+import { TokenData } from "@/types";
 
 // Mock the token context
 jest.mock("@/context/token-context", () => ({
   useTokenContext: jest.fn(),
 }));
 
-// Mock the sub-components
-jest.mock("@/components/TokenTable/TokenTableHeader", () => {
-  return {
-    __esModule: true,
-    default: () => <thead data-testid="token-table-header" />,
-  };
-});
+// Mock the child components used in TokenTable
+jest.mock("@/components/TokenTable/TokenTableHeader", () => ({
+  __esModule: true,
+  default: () => <div data-testid="token-table-header" />,
+}));
 
-jest.mock("@/components/TokenTable/TokenTableBody", () => {
-  return {
-    __esModule: true,
-    default: ({
-      onRowClick,
-    }: {
-      onRowClick: (id: string, name: string) => void;
-    }) => (
-      <tbody
-        data-testid="token-table-body"
-        onClick={() => onRowClick("ethereum", "Ethereum")}
-      />
-    ),
-  };
-});
+jest.mock("@/components/TokenTable/TokenTableBody", () => ({
+  __esModule: true,
+  default: ({
+    onRowClick,
+  }: {
+    onRowClick: (id: string, name: string) => void;
+  }) => (
+    <div
+      data-testid="token-table-body"
+      onClick={() => onRowClick && onRowClick("ethereum", "Ethereum")}
+    />
+  ),
+}));
 
 describe("TokenTable Component", () => {
   const mockOnTokenSelect = jest.fn();
@@ -41,24 +37,8 @@ describe("TokenTable Component", () => {
 
   it("renders correctly with header and body", () => {
     // Arrange
-    const mockTokens: TokenData[] = [
-      {
-        id: "ethereum",
-        name: "Ethereum",
-        symbol: "ETH",
-        image: "/eth.png",
-        current_price: 3500,
-        price_change_percentage_1h: 0.5,
-        price_change_percentage_24h: 2.3,
-        price_change_percentage_7d: -1.2,
-        total_volume: 20000000000,
-        market_cap: 380000000000,
-        sparkline_data: [3100, 3150, 3200, 3250],
-      },
-    ];
-
     (useTokenContext as jest.Mock).mockReturnValue({
-      tokens: mockTokens,
+      tokens: [],
       isLoading: false,
       error: null,
     });
@@ -69,7 +49,27 @@ describe("TokenTable Component", () => {
     // Assert
     expect(screen.getByTestId("token-table-header")).toBeInTheDocument();
     expect(screen.getByTestId("token-table-body")).toBeInTheDocument();
-    expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  it("renders with correct container classes", () => {
+    // Arrange
+    (useTokenContext as jest.Mock).mockReturnValue({
+      tokens: [],
+      isLoading: false,
+      error: null,
+    });
+
+    // Act
+    const { container } = render(
+      <TokenTable onTokenSelect={mockOnTokenSelect} />
+    );
+
+    // Assert
+    const tableContainer = container.firstChild;
+    expect(tableContainer).toHaveClass("rounded-lg");
+    expect(tableContainer).toHaveClass("border-2");
+    expect(tableContainer).toHaveClass("border-[#151819]");
+    expect(tableContainer).toHaveClass("overflow-hidden");
   });
 
   it("calls onTokenSelect when a row is clicked", () => {

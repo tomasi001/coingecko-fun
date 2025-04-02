@@ -25,9 +25,8 @@ jest.mock("@/lib/coingecko", () => {
   // Mock the implementation for error checking
   const originalModule = jest.requireActual("@/lib/coingecko");
 
-  // Create our own sleep function
-  const sleep = (ms: number) =>
-    new Promise((resolve) => setTimeout(resolve, ms));
+  // Make sleep immediately resolve in tests
+  const sleep = jest.fn().mockImplementation(() => Promise.resolve());
 
   // Create a modified version of getTokenOHLC that uses property checking instead of instanceof
   const modifiedGetTokenOHLC = async (

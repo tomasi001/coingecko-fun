@@ -9,7 +9,7 @@ const TokenTableError = () => {
         <TableCell colSpan={8} className="h-36 text-center bg-gray-800">
           <p className="text-red-500">
             Error:{" "}
-            {error
+            {error && error.message
               ? error.message
               : "An error has occurred, please try again later"}
           </p>
