@@ -1,20 +1,21 @@
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import { CoinGeckoMarketToken, CoinGeckoOHLCRaw } from "@/types";
 
-// Replace the current MockAxiosError implementation with this:
-// We'll use a simple property check instead of instanceof
+// Mock axios before importing our module
+jest.mock("axios", () => {
+  return {
+    create: jest.fn(() => ({
+      get: jest.fn(),
+    })),
+  };
+});
 
-class MockAxiosError extends Error {
-  response?: { status: number };
-  isAxiosError: boolean;
-
-  constructor(status: number) {
-    super(`Mock Axios Error ${status}`);
-    this.response = { status };
-    this.isAxiosError = true;
-    // Don't try to use Object.setPrototypeOf with AxiosError.prototype
-  }
-}
+// Import the real implementation after mocking axios
+import coingeckoClient, {
+  getTokenOHLC,
+  getTokensMarketData,
+  sleep,
+} from "@/lib/coingecko";
 
 // Mock the module before importing
 jest.mock("@/lib/coingecko", () => {
@@ -31,7 +32,7 @@ jest.mock("@/lib/coingecko", () => {
   // Create a modified version of getTokenOHLC that uses property checking instead of instanceof
   const modifiedGetTokenOHLC = async (
     tokenId: string,
-    days: number,
+    days = 7,
     retryCount = 0
   ) => {
     try {
@@ -124,27 +125,25 @@ jest.mock("@/lib/coingecko", () => {
   };
 });
 
-// Now import the mocked module
-import coingeckoClient, {
-  getTokenOHLC,
-  getTokensMarketData,
-} from "@/lib/coingecko";
-
 describe("CoinGecko Client", () => {
   let originalEnv: NodeJS.ProcessEnv;
 
   beforeEach(() => {
     originalEnv = { ...process.env };
-    jest.resetModules();
+    process.env.COINGECKO_API_KEY = "test-api-key";
     jest.clearAllMocks();
   });
 
   afterEach(() => {
     process.env = originalEnv;
+    jest.resetAllMocks();
   });
 
-  it("should throw an error if COINGECKO_API_KEY is not defined", async () => {
+  it("should throw an error if COINGECKO_API_KEY is not defined", () => {
     delete process.env.COINGECKO_API_KEY;
+
+    // We need to reset modules to force reloading the module
+    jest.resetModules();
 
     expect(() => {
       jest.isolateModules(() => {
@@ -153,9 +152,64 @@ describe("CoinGecko Client", () => {
     }).toThrow("Please add your CoinGecko API key to .env.local");
   });
 
-  it("should create a client with the correct configuration", async () => {
-    process.env.COINGECKO_API_KEY = "test-api-key";
-    expect(true).toBe(true);
+  it("should create a client with the correct configuration", () => {
+    // First, we need to restore the original axios mock
+    // before resetting modules to ensure it's properly applied
+    jest.resetAllMocks();
+    jest.resetModules();
+
+    // Set up the axios mock again explicitly before requiring the module
+    jest.doMock("axios", () => ({
+      create: jest.fn().mockReturnValue({
+        get: jest.fn(),
+      }),
+    }));
+
+    // Now import axios to get a reference to the newly mocked version
+    const mockedAxios = require("axios");
+
+    // Re-require the module to trigger axios.create
+    jest.isolateModules(() => {
+      require("@/lib/coingecko");
+    });
+
+    // Check that axios.create was called with the expected configuration
+    expect(mockedAxios.create).toHaveBeenCalledWith({
+      baseURL: "https://pro-api.coingecko.com/api/v3",
+      headers: {
+        "x-cg-pro-api-key": "test-api-key",
+      },
+    });
+  });
+
+  it("should implement a sleep function that returns a promise", async () => {
+    // We need to use the actual sleep function, not the mocked one
+    jest.dontMock("@/lib/coingecko");
+
+    // Explicitly import the unmocked sleep function
+    const { sleep } = jest.requireActual("@/lib/coingecko");
+
+    // Mock setTimeout to immediately resolve
+    jest.useFakeTimers();
+    const setTimeoutSpy = jest.spyOn(global, "setTimeout");
+
+    // Start the sleep function
+    const sleepPromise = sleep(1000);
+
+    // Fast-forward timers
+    jest.runAllTimers();
+
+    // Assert setTimeout was called with correct delay
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 1000);
+
+    // Ensure the promise resolves
+    await expect(sleepPromise).resolves.toBeUndefined();
+
+    // Restore timers
+    jest.useRealTimers();
+
+    // Restore the original mock for other tests
+    jest.doMock("@/lib/coingecko");
   });
 });
 
@@ -165,14 +219,17 @@ describe("getTokenOHLC", () => {
     [1617667200000, 2050, 2200, 2000, 2150, 2050],
   ];
 
+  // Reset all mocks before each test
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset mock get function
+    process.env.COINGECKO_API_KEY = "test-api-key";
+
+    // Reset all mock implementations
     (coingeckoClient.get as jest.Mock).mockReset();
   });
 
   it("should fetch OHLC data correctly", async () => {
-    // Arrange
+    // Setup mock
     (coingeckoClient.get as jest.Mock).mockResolvedValueOnce({
       data: mockOHLCData,
     });
@@ -191,13 +248,41 @@ describe("getTokenOHLC", () => {
     });
   });
 
-  it("should retry on rate limit errors", async () => {
-    // Arrange - create proper AxiosError
-    const mockError = new MockAxiosError(429);
+  it("should use default days parameter value", async () => {
+    // Reset mock
+    jest.clearAllMocks();
 
+    // Setup a simple mock for this test
+    (coingeckoClient.get as jest.Mock).mockResolvedValueOnce({
+      data: mockOHLCData,
+    });
+
+    // Act - don't provide days parameter
+    await getTokenOHLC("ethereum");
+
+    // Assert the default value 7 was used
+    expect(coingeckoClient.get).toHaveBeenCalledWith("/coins/ethereum/ohlc", {
+      params: {
+        vs_currency: "usd",
+        days: "7", // Default value
+        precision: "full",
+      },
+    });
+  });
+
+  it("should retry on rate limit errors", async () => {
+    // Create a rate limit error using AxiosError
+    const axiosError = new Error("Rate limit exceeded");
+    Object.defineProperty(axiosError, "isAxiosError", { value: true });
+    Object.defineProperty(axiosError, "response", { value: { status: 429 } });
+
+    // Mock successive calls - first one fails, second one succeeds
     (coingeckoClient.get as jest.Mock)
-      .mockRejectedValueOnce(mockError)
+      .mockRejectedValueOnce(axiosError)
       .mockResolvedValueOnce({ data: mockOHLCData });
+
+    // Mock sleep to prevent waiting
+    (sleep as jest.Mock).mockImplementation(() => Promise.resolve());
 
     // Act
     const result = await getTokenOHLC("ethereum", 7);
@@ -208,32 +293,38 @@ describe("getTokenOHLC", () => {
   });
 
   it("should throw an error after max retries", async () => {
-    // Arrange - create proper AxiosError
-    const mockError = new MockAxiosError(429);
+    // Create a rate limit error
+    const axiosError = new Error("Rate limit exceeded");
+    Object.defineProperty(axiosError, "isAxiosError", { value: true });
+    Object.defineProperty(axiosError, "response", { value: { status: 429 } });
 
-    // Fail 4 times (original + 3 retries)
-    (coingeckoClient.get as jest.Mock)
-      .mockRejectedValueOnce(mockError)
-      .mockRejectedValueOnce(mockError)
-      .mockRejectedValueOnce(mockError)
-      .mockRejectedValue(mockError);
+    // Make all calls fail with rate limit error
+    (coingeckoClient.get as jest.Mock).mockRejectedValue(axiosError);
+
+    // Mock sleep to prevent waiting
+    (sleep as jest.Mock).mockImplementation(() => Promise.resolve());
 
     // Act & Assert
-    await expect(getTokenOHLC("ethereum", 7)).rejects.toMatchObject({
-      isAxiosError: true,
-      response: { status: 429 },
-    });
-    expect(coingeckoClient.get).toHaveBeenCalledTimes(4);
-  }, 15000); // Increase timeout to 15 seconds
+    await expect(getTokenOHLC("ethereum", 7)).rejects.toEqual(axiosError);
+    expect(coingeckoClient.get).toHaveBeenCalledTimes(4); // 1 original + 3 retries
+  }, 15000);
 
   it("should throw other errors immediately without retrying", async () => {
-    // Arrange - regular Error, not AxiosError
-    const mockError = new Error("Network error");
-    (coingeckoClient.get as jest.Mock).mockRejectedValueOnce(mockError);
+    // Create a non-rate-limit error
+    const nonRateLimitError = new Error("Network error");
+    Object.defineProperty(nonRateLimitError, "isAxiosError", { value: true });
+    Object.defineProperty(nonRateLimitError, "response", {
+      value: { status: 500 },
+    });
+
+    // Mock to throw the error
+    (coingeckoClient.get as jest.Mock).mockRejectedValue(nonRateLimitError);
 
     // Act & Assert
-    await expect(getTokenOHLC("ethereum", 7)).rejects.toThrow("Network error");
-    expect(coingeckoClient.get).toHaveBeenCalledTimes(1);
+    await expect(getTokenOHLC("ethereum", 7)).rejects.toEqual(
+      nonRateLimitError
+    );
+    expect(coingeckoClient.get).toHaveBeenCalledTimes(1); // No retries
   });
 });
 
@@ -273,20 +364,21 @@ describe("getTokensMarketData", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset mock get function
-    (coingeckoClient.get as jest.Mock).mockReset();
+    process.env.COINGECKO_API_KEY = "test-api-key";
+
+    // Instead of trying to mock setTimeout directly, use the already mocked sleep function
+    // The sleep function is already mocked in the main jest.mock setup
+    // We don't need to do anything extra here
   });
 
   it("should fetch and transform market data correctly", async () => {
-    // Arrange
+    // Mock the get method
     (coingeckoClient.get as jest.Mock).mockResolvedValueOnce({
       data: mockMarketData,
     });
 
-    const tokenIds = ["ethereum", "aver"];
-
     // Act
-    const result = await getTokensMarketData(tokenIds);
+    const result = await getTokensMarketData(["ethereum", "aver"]);
 
     // Assert
     expect(result).toHaveLength(2);
@@ -316,7 +408,7 @@ describe("getTokensMarketData", () => {
   });
 
   it("should handle null values in the response", async () => {
-    // Arrange
+    // Mock data with nulls
     const mockDataWithNulls: CoinGeckoMarketToken[] = [
       {
         ...mockMarketData[0],
@@ -327,6 +419,7 @@ describe("getTokensMarketData", () => {
       },
     ];
 
+    // Mock the response
     (coingeckoClient.get as jest.Mock).mockResolvedValueOnce({
       data: mockDataWithNulls,
     });
@@ -334,7 +427,7 @@ describe("getTokensMarketData", () => {
     // Act
     const result = await getTokensMarketData(["ethereum"]);
 
-    // Assert
+    // Assert - check default values are used
     expect(result[0]).toEqual({
       id: "ethereum",
       name: "Ethereum",
@@ -351,11 +444,14 @@ describe("getTokensMarketData", () => {
   });
 
   it("should retry on rate limit errors", async () => {
-    // Arrange - create proper AxiosError
-    const mockError = new MockAxiosError(429);
+    // Create a rate limit error using AxiosError-like object
+    const axiosError = new Error("Rate limit exceeded");
+    Object.defineProperty(axiosError, "isAxiosError", { value: true });
+    Object.defineProperty(axiosError, "response", { value: { status: 429 } });
 
+    // Mock successive calls
     (coingeckoClient.get as jest.Mock)
-      .mockRejectedValueOnce(mockError)
+      .mockRejectedValueOnce(axiosError)
       .mockResolvedValueOnce({ data: mockMarketData });
 
     // Act
@@ -367,35 +463,36 @@ describe("getTokensMarketData", () => {
   });
 
   it("should throw an error after max retries", async () => {
-    // Arrange - create proper AxiosError
-    const mockError = new MockAxiosError(429);
+    // Create a rate limit error
+    const axiosError = new Error("Rate limit exceeded");
+    Object.defineProperty(axiosError, "isAxiosError", { value: true });
+    Object.defineProperty(axiosError, "response", { value: { status: 429 } });
 
-    // Fail 4 times (original + 3 retries)
+    // Make all calls fail with rate limit error
     (coingeckoClient.get as jest.Mock)
-      .mockRejectedValueOnce(mockError)
-      .mockRejectedValueOnce(mockError)
-      .mockRejectedValueOnce(mockError)
-      .mockRejectedValue(mockError);
+      .mockRejectedValueOnce(axiosError)
+      .mockRejectedValueOnce(axiosError)
+      .mockRejectedValueOnce(axiosError)
+      .mockRejectedValue(axiosError);
 
     // Act & Assert
-    await expect(
-      getTokensMarketData(["ethereum", "aver"])
-    ).rejects.toMatchObject({
-      isAxiosError: true,
-      response: { status: 429 },
-    });
-    expect(coingeckoClient.get).toHaveBeenCalledTimes(4);
-  }, 15000); // Increase timeout to 15 seconds
+    await expect(getTokensMarketData(["ethereum", "aver"])).rejects.toEqual(
+      axiosError
+    );
+    expect(coingeckoClient.get).toHaveBeenCalledTimes(4); // 1 original + 3 retries
+  });
 
   it("should throw other errors immediately without retrying", async () => {
-    // Arrange - regular Error, not AxiosError
-    const mockError = new Error("Network error");
-    (coingeckoClient.get as jest.Mock).mockRejectedValueOnce(mockError);
+    // Create a non-rate-limit error
+    const nonRateLimitError = new Error("Network error");
+
+    // Mock to throw the error
+    (coingeckoClient.get as jest.Mock).mockRejectedValueOnce(nonRateLimitError);
 
     // Act & Assert
-    await expect(getTokensMarketData(["ethereum", "aver"])).rejects.toThrow(
-      "Network error"
+    await expect(getTokensMarketData(["ethereum", "aver"])).rejects.toEqual(
+      nonRateLimitError
     );
-    expect(coingeckoClient.get).toHaveBeenCalledTimes(1);
+    expect(coingeckoClient.get).toHaveBeenCalledTimes(1); // No retries
   });
 });

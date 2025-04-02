@@ -9,7 +9,7 @@ const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
 const BASE_URL = "https://pro-api.coingecko.com/api/v3";
 
 // Add sleep utility function
-const sleep = (ms: number): Promise<void> =>
+export const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 const coingeckoClient = axios.create({
