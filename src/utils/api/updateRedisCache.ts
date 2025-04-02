@@ -1,9 +1,9 @@
 import redisClient, { CACHE_KEYS, CACHE_TTL } from "@/lib/redis";
-import { TokenCacheData } from "@/types";
+import { TokenCacheData, TokenData } from "@/types";
 
 // Helper Function: Update Redis Cache
 export async function updateRedisCache(data: TokenCacheData): Promise<void> {
-  const promises: Promise<any>[] = [];
+  const promises: Promise<TokenData | "OK" | null>[] = [];
 
   try {
     if (data.ethereum) {

@@ -1,3 +1,4 @@
+import { UpdateResult } from "mongodb";
 import clientPromise from "@/lib/mongodb";
 import redisClient, { CACHE_KEYS } from "@/lib/redis";
 import { TokenCacheData } from "@/types";
@@ -11,8 +12,6 @@ export async function updateMongoDBWithLock(
   data: TokenCacheData,
   currentTime: number
 ): Promise<void> {
-  const startTime = Date.now();
-
   try {
     // First, check the current value of the timestamp key
     const lockAcquired = await redisClient.set(REDIS_LOCK_KEY, "locked", {
@@ -26,7 +25,7 @@ export async function updateMongoDBWithLock(
         const db = client.db("aver");
         const tokensCollection = db.collection("tokens");
 
-        const promises: Promise<any>[] = [];
+        const promises: Promise<UpdateResult>[] = [];
 
         if (data.ethereum) {
           // Prepare a single document with both price and OHLC data

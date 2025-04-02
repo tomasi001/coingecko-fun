@@ -1,3 +1,4 @@
+import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
 import { TokenCacheData, TokenData } from "@/types";
 
@@ -13,29 +14,42 @@ export async function fetchFromMongoDB(): Promise<TokenCacheData> {
     const db = client.db("aver");
     const tokensCollection = db.collection("tokens");
 
+    // Define a type for the MongoDB document
+    type TokenDocument = TokenData & {
+      _id: ObjectId;
+      token: string;
+      timestamp: Date;
+    };
+
+    // Helper function to extract TokenData
+    function extractTokenData(doc: TokenDocument | null): TokenData | null {
+      if (!doc) return null;
+
+      // Create a new object with only TokenData properties
+      return {
+        id: doc.id,
+        name: doc.name,
+        symbol: doc.symbol,
+        image: doc.image,
+        current_price: doc.current_price,
+        price_change_percentage_1h: doc.price_change_percentage_1h,
+        price_change_percentage_24h: doc.price_change_percentage_24h,
+        price_change_percentage_7d: doc.price_change_percentage_7d,
+        total_volume: doc.total_volume,
+        market_cap: doc.market_cap,
+        sparkline_data: doc.sparkline_data,
+        ohlcData: doc.ohlcData,
+      };
+    }
+
     // Get the documents for each token
     const [ethereumDoc, averDoc] = await Promise.all([
-      tokensCollection.findOne<
-        { _id: any; token: string; timestamp: Date } & TokenData
-      >({ token: "ethereum" }),
-      tokensCollection.findOne<
-        { _id: any; token: string; timestamp: Date } & TokenData
-      >({ token: "aver-ai" }),
+      tokensCollection.findOne<TokenDocument>({ token: "ethereum" }),
+      tokensCollection.findOne<TokenDocument>({ token: "aver-ai" }),
     ]);
 
-    if (ethereumDoc) {
-      // The document already contains both price and OHLC data
-      // Remove MongoDB-specific fields
-      const { _id, token, timestamp, ...ethereumData } = ethereumDoc;
-      result.ethereum = ethereumData as TokenData;
-    }
-
-    if (averDoc) {
-      // The document already contains both price and OHLC data
-      // Remove MongoDB-specific fields
-      const { _id, token, timestamp, ...averData } = averDoc;
-      result.aver = averData as TokenData;
-    }
+    result.ethereum = extractTokenData(ethereumDoc);
+    result.aver = extractTokenData(averDoc);
 
     return result;
   } catch (error) {
