@@ -20,6 +20,38 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Automated Tests
+
+The project includes comprehensive automated tests for API endpoints, database operations, Redis caching, and security. To run tests:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode (for development)
+npm run test:watch
+
+# Generate test coverage report
+npm run test:coverage
+```
+
+### Test Coverage
+
+The test suite currently covers the critical infrastructure components:
+
+- MongoDB connection and data operations
+- Redis caching mechanisms
+- API endpoints (error handling and happy paths)
+- Security validations for malicious inputs
+
+Areas that require additional test coverage include:
+
+- Frontend components and UI interactions
+- Integration tests for the full application flow
+- CoinGecko API interaction layer
+
+For more details about the testing strategy, see [**tests**/README.md](./__tests__/README.md).
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
