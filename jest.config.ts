@@ -20,6 +20,8 @@ const config: Config = {
     "!**/node_modules/**",
     "!src/utils/api/index.ts",
     "!src/utils/index.ts",
+    "!src/components/index.ts",
+    "!src/components/ui/**",
   ],
   moduleNameMapper: {
     // Handle module aliases
