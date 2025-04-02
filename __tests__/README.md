@@ -1,71 +1,54 @@
 # Testing Strategy
 
-This document outlines the testing approach for the Aver application.
+This document outlines the testing approach for the Aver AI Token Data Application.
 
 ## Test Structure
 
-The test suite is organized into the following categories:
+The test suite is organized into:
 
-- **API Tests**: Validate that API endpoints correctly handle requests, responses, and error cases
-- **Security Tests**: Ensure proper input validation and protection against common attacks
-- **Library Tests**: Test core functionality of MongoDB and Redis connections
-- **Utility Tests**: Validate helper functions and shared utilities
+- **API Tests**: Validate API endpoints for correct handling of requests and responses
+- **Security Tests**: Ensure protection against injection attempts and malformed requests
+- **Library Tests**: Validate MongoDB and Redis functionality
+- **Utility Tests**: Test helper functions and shared utilities
 
 ## Running Tests
 
 ```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Generate test coverage report
-npm run test:coverage
+npm test              # Run all tests
+npm run test:watch    # Run in watch mode
+npm run test:coverage # Generate coverage report
 ```
 
 ## Mocking Strategy
 
-The tests use Jest mocks to isolate components and simulate dependencies:
+- **Next.js**: Framework components mocked in `__tests__/__mocks__/next.tsx`
+- **External APIs**: CoinGecko API calls mocked
+- **Database**: MongoDB and Redis connections mocked
 
-- **Next.js**: The Next.js framework components are mocked in `__tests__/__mocks__/next.tsx`
-- **External APIs**: API calls to CoinGecko and other services are mocked
-- **Database Connections**: MongoDB and Redis connections are mocked to prevent actual database operations
+## Current Coverage
 
-## Current Test Coverage
-
-The test suite currently focuses on backend functionality with the following coverage:
-
-- ✅ API endpoint response validation
+- ✅ API endpoint validation
 - ✅ Token data retrieval and caching
 - ✅ Security input validation
-- ✅ MongoDB connection and operations
-- ✅ Redis caching operations
+- ✅ MongoDB and Redis operations
 - ✅ Error handling
 
 ## Areas for Improvement
 
-The following areas need additional test coverage:
+1. Frontend component tests
+2. End-to-end tests with Cypress or Playwright
+3. Performance/load testing for critical endpoints
+4. Integration tests between systems
 
-1. **Frontend Components**: Add unit tests for React components
-2. **End-to-End Tests**: Implement Cypress or Playwright tests for full application flows
-3. **User Authentication**: Add tests for login, registration, and authorization
-4. **Performance Tests**: Add load testing for critical API endpoints
-5. **Integration Tests**: Test interactions between multiple systems
+## Testing Best Practices
 
-## Best Practices
-
-When adding new tests:
-
-1. Follow the existing test structure and naming conventions
-2. Create meaningful test descriptions that explain what is being tested
+1. Follow existing structure and naming conventions
+2. Create meaningful test descriptions
 3. Use the AAA pattern (Arrange, Act, Assert)
-4. Mock external dependencies to keep tests isolated
-5. Focus on testing behavior, not implementation details
-6. Ensure tests run quickly and don't have side effects
+4. Mock external dependencies
+5. Focus on behavior, not implementation details
 
-## Common Issues
+## Troubleshooting
 
-- **Punycode Deprecation Warning**: This is a known issue with the current Node.js version and can be safely ignored
-- **MongoDB Connection Errors**: Make sure the test MongoDB URI is properly configured
-- **Redis Connection Timeouts**: Ensure Redis mock is properly configured in each test suite
+- **MongoDB Connection Errors**: Verify test MongoDB URI configuration
+- **Redis Connection Timeouts**: Ensure Redis mock is properly configured
