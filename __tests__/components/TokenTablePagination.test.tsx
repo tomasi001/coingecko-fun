@@ -179,4 +179,152 @@ describe("TokenTablePagination Component", () => {
     // Assert
     expect(mockSetItemsPerPage).toHaveBeenCalledWith(20);
   });
+
+  // New tests to increase coverage
+
+  it("displays correct pagination for few pages (≤ 5 pages)", () => {
+    // Arrange - 3 pages total (30 items with 10 per page)
+    (useTokenContext as jest.Mock).mockReturnValue({
+      tokens: Array(30).fill(null),
+      currentPage: 2,
+      setCurrentPage: mockSetCurrentPage,
+      itemsPerPage: 10,
+      setItemsPerPage: mockSetItemsPerPage,
+    });
+
+    // Act
+    render(<TokenTablePagination />);
+
+    // Assert - should show exactly 3 pages
+    expect(screen.getByTestId("page-link-1")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-2")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-3")).toBeInTheDocument();
+    expect(screen.queryByTestId("page-link-4")).not.toBeInTheDocument();
+  });
+
+  it("displays correct pagination for early pages (currentPage ≤ 3)", () => {
+    // Arrange - many pages but current page is 2
+    (useTokenContext as jest.Mock).mockReturnValue({
+      tokens: Array(100).fill(null),
+      currentPage: 2,
+      setCurrentPage: mockSetCurrentPage,
+      itemsPerPage: 10,
+      setItemsPerPage: mockSetItemsPerPage,
+    });
+
+    // Act
+    render(<TokenTablePagination />);
+
+    // Assert - should show pages 1-5
+    expect(screen.getByTestId("page-link-1")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-2")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-3")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-4")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-5")).toBeInTheDocument();
+    expect(screen.queryByTestId("page-link-6")).not.toBeInTheDocument();
+  });
+
+  it("displays correct pagination for late pages (near the end)", () => {
+    // Arrange - 10 pages total and current page is 9 (near end)
+    (useTokenContext as jest.Mock).mockReturnValue({
+      tokens: Array(100).fill(null),
+      currentPage: 9,
+      setCurrentPage: mockSetCurrentPage,
+      itemsPerPage: 10,
+      setItemsPerPage: mockSetItemsPerPage,
+    });
+
+    // Act
+    render(<TokenTablePagination />);
+
+    // Assert - should show pages 6-10
+    expect(screen.queryByTestId("page-link-5")).not.toBeInTheDocument();
+    expect(screen.getByTestId("page-link-6")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-7")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-8")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-9")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-10")).toBeInTheDocument();
+  });
+
+  it("displays correct pagination for middle pages", () => {
+    // Arrange - many pages with current page in middle
+    (useTokenContext as jest.Mock).mockReturnValue({
+      tokens: Array(100).fill(null),
+      currentPage: 6,
+      setCurrentPage: mockSetCurrentPage,
+      itemsPerPage: 10,
+      setItemsPerPage: mockSetItemsPerPage,
+    });
+
+    // Act
+    render(<TokenTablePagination />);
+
+    // Assert - should show 2 pages before and after current page
+    expect(screen.getByTestId("page-link-4")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-5")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-6")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-7")).toBeInTheDocument();
+    expect(screen.getByTestId("page-link-8")).toBeInTheDocument();
+    expect(screen.queryByTestId("page-link-3")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("page-link-9")).not.toBeInTheDocument();
+  });
+
+  it("handles navigation to previous page", () => {
+    // Arrange - current page is 3
+    (useTokenContext as jest.Mock).mockReturnValue({
+      tokens: Array(50).fill(null),
+      currentPage: 3,
+      setCurrentPage: mockSetCurrentPage,
+      itemsPerPage: 10,
+      setItemsPerPage: mockSetItemsPerPage,
+    });
+
+    // Act
+    render(<TokenTablePagination />);
+    fireEvent.click(screen.getByTestId("prev-button"));
+
+    // Assert
+    expect(mockSetCurrentPage).toHaveBeenCalledWith(2);
+  });
+
+  it("handles navigation to next page", () => {
+    // Arrange - current page is 3, not the last page
+    (useTokenContext as jest.Mock).mockReturnValue({
+      tokens: Array(50).fill(null),
+      currentPage: 3,
+      setCurrentPage: mockSetCurrentPage,
+      itemsPerPage: 10,
+      setItemsPerPage: mockSetItemsPerPage,
+    });
+
+    // Act
+    render(<TokenTablePagination />);
+    fireEvent.click(screen.getByTestId("next-button"));
+
+    // Assert
+    expect(mockSetCurrentPage).toHaveBeenCalledWith(4);
+  });
+
+  it("disables next button on last page", () => {
+    // Arrange - current page is the last page (5)
+    (useTokenContext as jest.Mock).mockReturnValue({
+      tokens: Array(50).fill(null),
+      currentPage: 5, // Last page (50 items / 10 per page)
+      setCurrentPage: mockSetCurrentPage,
+      itemsPerPage: 10,
+      setItemsPerPage: mockSetItemsPerPage,
+    });
+
+    // Act
+    render(<TokenTablePagination />);
+
+    // Assert
+    expect(screen.getByTestId("next-button")).toHaveClass(
+      "pointer-events-none opacity-50"
+    );
+
+    // Try clicking the disabled button
+    fireEvent.click(screen.getByTestId("next-button"));
+    expect(mockSetCurrentPage).not.toHaveBeenCalled();
+  });
 });
